@@ -15,11 +15,19 @@ fmt: ## Run go fmt and goimports
 
 .PHONY: build
 build: ## Build app
-	CGO_ENABLED=0 go build ${LDFLAGS} -o ./bin/semaphore ./cmd/semaphore
+	CGO_ENABLED=0 go build ${LDFLAGS} -o ./bin/torrent-client .
 
 .PHONY: run
-run: build ## Build and run with default config
-	bin/semaphore --config cmd/configs/semaphore.config.yml
+run: build
+	bin/torrent-client test3.torrent bin/test3.dmg
+
+.PHONY: run2
+run2: build
+	bin/torrent-client test2.torrent bin/test2
+
+.PHONY: run3
+run3: build ## Build and run with default config
+	bin/torrent-client test.torrent bin/test.iso
 
 .PHONY: build-proff ## Build app for proff
 build_proff: fmt

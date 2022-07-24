@@ -8,6 +8,8 @@ import (
 	"os"
 
 	"github.com/Kud1nov/torrent-client/p2p"
+
+	"github.com/jackpal/bencode-go"
 )
 
 // Port to listen on
@@ -15,19 +17,26 @@ const Port uint16 = 6881
 
 // TorrentFile encodes the metadata from a .torrent file
 type TorrentFile struct {
-	Announce    string
-	InfoHash    [20]byte
-	PieceHashes [][20]byte
-	PieceLength int
-	Length      int
-	Name        string
+	Announce      string
+	InfoHash      [20]byte
+	PieceHashes   [][20]byte
+	PieceLength   int
+	Length        int
+	Name          string
+	PeersInterval int
+}
+
+type bencodeInfoFiles struct {
+	Length int      `bencode:"length"`
+	Path   []string `bencode:"path"`
 }
 
 type bencodeInfo struct {
-	Pieces      string `bencode:"pieces"`
-	PieceLength int    `bencode:"piece length"`
-	Length      int    `bencode:"length"`
-	Name        string `bencode:"name"`
+	Files       []bencodeInfoFiles `bencode:"files,omitempty"`
+	Pieces      string             `bencode:"pieces"`
+	PieceLength int                `bencode:"piece length"`
+	Length      int                `bencode:"length,omitempty"`
+	Name        string             `bencode:"name"`
 }
 
 type bencodeTorrent struct {
@@ -133,5 +142,10 @@ func (bto *bencodeTorrent) toTorrentFile() (TorrentFile, error) {
 		Length:      bto.Info.Length,
 		Name:        bto.Info.Name,
 	}
+
+	for _, fl := range bto.Info.Files {
+		t.Length += fl.Length
+	}
+
 	return t, nil
 }

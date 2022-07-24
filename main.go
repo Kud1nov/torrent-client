@@ -15,9 +15,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	//log.Printf("%+v", tf)
 
 	err = tf.DownloadToFile(outPath)
 	if err != nil {
+		log.Printf("%s", "Download Error")
 		log.Fatal(err)
 	}
 }
