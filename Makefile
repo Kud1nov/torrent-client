@@ -19,15 +19,15 @@ build: ## Build app
 
 .PHONY: run
 run: build
-	bin/torrent-client test3.torrent bin/test3.dmg
+	bin/torrent-client torrentfile/testdata/test3.torrent bin/test3.dmg
 
 .PHONY: run2
 run2: build
-	bin/torrent-client test2.torrent bin/test2
+	bin/torrent-client torrentfile/testdata/test2.torrent bin/test2
 
 .PHONY: run3
 run3: build ## Build and run with default config
-	bin/torrent-client test.torrent bin/test.iso
+	bin/torrent-client torrentfile/testdata/test.torrent bin/test.iso
 
 .PHONY: build-proff ## Build app for proff
 build_proff: fmt

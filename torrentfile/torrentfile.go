@@ -6,8 +6,10 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/Kud1nov/torrent-client/p2p"
+	"github.com/Kud1nov/torrent-client/peers"
 
 	"github.com/jackpal/bencode-go"
 )
@@ -17,18 +19,20 @@ const Port uint16 = 6881
 
 // TorrentFile encodes the metadata from a .torrent file
 type TorrentFile struct {
-	Announce      string
+	AnnounceList  []string
 	InfoHash      [20]byte
 	PieceHashes   [][20]byte
 	PieceLength   int
 	Length        int
 	Name          string
 	PeersInterval int
+	MultipleFile  bool
 }
 
 type bencodeInfoFiles struct {
-	Length int      `bencode:"length"`
-	Path   []string `bencode:"path"`
+	Length int      `bencode:"length"`           // Длина файла в байтах
+	MD5sum string   `bencode:"md5sum,omitempty"` // (optional) Соответствующая сумме MD5 файла
+	Path   []string `bencode:"path"`             // Путь и имя файла. Пример, []string{"dir1", "dir2", "file.ext"} => "dir1/dir2/file.ext"
 }
 
 type bencodeInfo struct {
@@ -40,8 +44,10 @@ type bencodeInfo struct {
 }
 
 type bencodeTorrent struct {
-	Announce string      `bencode:"announce"`
-	Info     bencodeInfo `bencode:"info"`
+	Announce     string      `bencode:"announce"`
+	AnnounceList [][]string  `bencode:"announce-list,omitempty"`
+	Encoding     string      `bencode:"encoding,omitempty"`
+	Info         bencodeInfo `bencode:"info"`
 }
 
 // DownloadToFile downloads a torrent and writes it to a file
@@ -52,13 +58,19 @@ func (t *TorrentFile) DownloadToFile(path string) error {
 		return err
 	}
 
-	peers, err := t.requestPeers(peerID, Port)
-	if err != nil {
-		return err
+	var Peers []peers.Peer
+
+	for i := range t.AnnounceList {
+		peersChunk, err := t.requestPeers(t.AnnounceList[i], peerID, Port)
+		if err != nil {
+			return err
+		}
+
+		Peers = append(Peers, peersChunk...)
 	}
 
 	torrent := p2p.Torrent{
-		Peers:       peers,
+		Peers:       Peers,
 		PeerID:      peerID,
 		InfoHash:    t.InfoHash,
 		PieceHashes: t.PieceHashes,
@@ -89,7 +101,10 @@ func Open(path string) (TorrentFile, error) {
 	if err != nil {
 		return TorrentFile{}, err
 	}
-	defer file.Close()
+
+	defer func() {
+		_ = file.Close()
+	}()
 
 	bto := bencodeTorrent{}
 	err = bencode.Unmarshal(file, &bto)
@@ -134,14 +149,33 @@ func (bto *bencodeTorrent) toTorrentFile() (TorrentFile, error) {
 	if err != nil {
 		return TorrentFile{}, err
 	}
+
 	t := TorrentFile{
-		Announce:    bto.Announce,
-		InfoHash:    infoHash,
-		PieceHashes: pieceHashes,
-		PieceLength: bto.Info.PieceLength,
-		Length:      bto.Info.Length,
-		Name:        bto.Info.Name,
+		AnnounceList: []string{},
+		InfoHash:     infoHash,
+		PieceHashes:  pieceHashes,
+		PieceLength:  bto.Info.PieceLength,
+		Length:       bto.Info.Length,
+		Name:         bto.Info.Name,
+		MultipleFile: false,
 	}
+
+	for _, announceUrl := range bto.AnnounceList {
+		if strings.Contains(announceUrl[0], ".local") {
+			continue
+		}
+		t.AnnounceList = append(t.AnnounceList, announceUrl[0])
+	}
+
+	if len(t.AnnounceList) == 0 {
+		t.AnnounceList = append(t.AnnounceList, bto.Announce)
+	}
+
+	if len(bto.Info.Files) == 0 {
+		return t, nil
+	}
+
+	t.MultipleFile = false
 
 	for _, fl := range bto.Info.Files {
 		t.Length += fl.Length

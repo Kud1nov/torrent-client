@@ -15,6 +15,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.Printf("%+v", tf.AnnounceList)
+	os.Exit(0)
 	//log.Printf("%+v", tf)
 
 	err = tf.DownloadToFile(outPath)
